@@ -43,7 +43,7 @@ jobs:
         working-directory: tofu
         run: |
           tofu init
-          tofu apply
+          tofu apply -auto-approve
           echo "site-bucket=$(tofu output site_bucket)" >> ${GITHUB_OUTPUT}
 
       - name: Upload to S3
