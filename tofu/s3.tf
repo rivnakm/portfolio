@@ -1,5 +1,5 @@
 resource "aws_s3_bucket" "site_bucket" {
-  bucket = "portfolio-site"
+  bucket = "rivnakm-portfolio-site-${uuid()}"
 }
 
 output "site_bucket" {
