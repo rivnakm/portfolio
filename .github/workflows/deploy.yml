@@ -42,6 +42,7 @@ jobs:
         id: tofu-apply
         working-directory: tofu
         run: |
+          tofu init
           tofu apply
           echo "site-bucket=$(tofu output site_bucket)" >> ${GITHUB_OUTPUT}
 
