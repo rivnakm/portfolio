@@ -1,4 +1,4 @@
-name: Netlify Deploy Action
+name: AWS Deploy Action
 
 on:
   push:
@@ -14,18 +14,41 @@ jobs:
     needs:
       - build
     steps:
-      - name: Download artifact
-        uses: actions/download-artifact@v2
-        with:
-          name: public
-          path: public
+      - name: Checkout
+        uses: actions/checkout@v4
 
-      - name: Deploy to Netlify
-        uses: nwtgck/actions-netlify@v1
+      - name: Download artifact
+        uses: actions/download-artifact@v4
         with:
-          publish-dir: "./public"
-          production-branch: main
-          deploy-message: ${{ github.event.head_commit.message }}
-        env:
-          NETLIFY_AUTH_TOKEN: ${{ secrets.NETLIFY_TOKEN }}
-          NETLIFY_SITE_ID: ${{ secrets.NETLIFY_SITE_ID }}
+          name: dist
+          path: dist
+
+      - name: Install OpenTofu
+        run: |
+          curl --proto '=https' --tlsv1.2 -fsSL https://get.opentofu.org/install-opentofu.sh -o install-opentofu.sh
+          chmod +x install-opentofu.sh
+          ./install-opentofu.sh --install-method deb
+          rm install-opentofu.sh
+
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: us-east-1
+
+      - name: Run OpenTofu plan
+        id: tofu-apply
+        working-directory: tofu
+        run: |
+          tofu init
+          tofu apply -auto-approve
+          echo "site-bucket=$(tofu output site_bucket)" >> ${GITHUB_OUTPUT}
+          echo "site-distribution=$(tofu output site_distribution)" >> ${GITHUB_OUTPUT}
+
+      - name: Upload to S3
+        run: aws s3 sync --delete ./dist s3://${{ steps.tofu-apply.outputs.site-bucket }}
+
+      - name: Invalidate CloudFront cache
+        run: aws cloudfront create-invalidation --distribution-id ${{ steps.tofu-apply.outputs.site-distribution }} --paths "/*"
+
