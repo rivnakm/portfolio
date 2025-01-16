@@ -45,7 +45,11 @@ jobs:
           tofu init
           tofu apply -auto-approve
           echo "site-bucket=$(tofu output site_bucket)" >> ${GITHUB_OUTPUT}
+          echo "site-distribution=$(tofu output site_distribution)" >> ${GITHUB_OUTPUT}
 
       - name: Upload to S3
         run: aws s3 sync --delete ./dist s3://${{ steps.tofu-apply.outputs.site-bucket }}
+
+      - name: Invalidate CloudFront cache
+        run: aws cloudfront create-invalidation --distribution-id ${{ steps.tofu-apply.outputs.site-distribution }} --paths "/*"
 
